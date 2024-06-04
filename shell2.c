@@ -275,7 +275,7 @@ void execute_if_else() {
 int execute_command(char *command) {
     char *token;
     char *outfile;
-    char *infile = NULL; // To handle input redirection
+    char *infile;
     int i, fd, amper, redirect, retid, status, redirect_stderr, append;
     char **argv;
     
@@ -379,9 +379,9 @@ int execute_command(char *command) {
 
         // Reset control variables for each command
         amper = redirect = redirect_stderr = append = 0;
-        outfile = NULL;
+        outfile = infile = NULL;
 
-        // Check for & (background), > (redirect stdout), 2> (redirect stderr), >> (append), and < (redirect stdin)
+        // Check for &, >, 2>, >>, and <
         for (int j = 0; argv[j]; j++) {
             if (!strcmp(argv[j], "&")) {
                 amper = 1;
@@ -452,14 +452,15 @@ int execute_command(char *command) {
                 close(fd);
             }
 
-            // Handle redirection of stdin
+            // Handle input redirection
             if (infile) {
                 fd = open(infile, O_RDONLY);
-                if (fd < 0) {
+                if (fd == -1) {
                     perror("open");
                     exit(1);
                 }
-                dup2(fd, STDIN_FILENO);
+                close(STDIN_FILENO);
+                dup(fd);
                 close(fd);
             }
 
@@ -549,7 +550,9 @@ int main() {
             continue;
         }
 
-        add_to_history(command);
+        if (strcmp(command, "!!") != 0) {
+            add_to_history(command);
+        }
 
         substitute_variables(command);
 
